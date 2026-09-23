@@ -25,6 +25,7 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
+    TypeHandler,
     filters,
 )
 
@@ -716,8 +717,27 @@ async def on_private_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 # Buyruqlar
 # ----------------------------------------------------------------------------
 
+async def log_update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Har qanday yangilanishni logga yozadi — nosozlikni topish uchun."""
+    msg = update.effective_message
+    chat = update.effective_chat
+    log.info(
+        "KELDI | turi=%s | chat_id=%s (%s) | matn=%r | rasm=%s | hujjat=%s",
+        "edit" if (update.edited_message or update.edited_channel_post) else "yangi",
+        chat.id if chat else "—",
+        chat.type if chat else "—",
+        (msg.text or msg.caption or "")[:60] if msg else "—",
+        bool(msg and msg.photo),
+        bool(msg and msg.document),
+    )
+
+
+async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    log.error("XATO: %s", context.error, exc_info=context.error)
+
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         "Salom! Men cheklarni o'qib Notion'ga yozaman.\n\n"
         "Guruh yoki kanalda ID'ni bilish uchun: /id"
     )
@@ -751,6 +771,9 @@ async def cmd_hisobot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 def main() -> None:
     app = Application.builder().token(BOT_TOKEN).build()
+
+    app.add_handler(TypeHandler(Update, log_update), group=-1)
+    app.add_error_handler(on_error)
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("id", cmd_id))
